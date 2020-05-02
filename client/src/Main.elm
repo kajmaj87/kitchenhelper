@@ -1,9 +1,10 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, input, text)
+import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
+import Set exposing (Set)
 
 
 
@@ -18,13 +19,28 @@ main =
 -- MODEL
 
 
+type alias Dish =
+    { name : String
+    , tags : List String
+    , desc : String
+    }
+
+
 type alias Model =
-    String
+    { tagsToSearch : String
+    , dishes : List Dish
+    }
+
+
+dummyDishes =
+    [ { name = "Pomidorowka", tags = [ "zupa", "proste" ], desc = "Bla bla" }, { name = "Tortilla", tags = [ "szybkie", "proste" ], desc = "Bla tortilla bla" } ]
 
 
 init : Model
 init =
-    ""
+    { tagsToSearch = ""
+    , dishes = dummyDishes
+    }
 
 
 
@@ -32,60 +48,74 @@ init =
 
 
 type Msg
-    = Change String
-
-
-dropLast : List a -> List a
-dropLast list =
-    List.take (List.length list - 1) list
+    = ChangeTags String
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        Change newContent ->
-            newContent
+        ChangeTags newTags ->
+            { model | tagsToSearch = newTags }
+
+
+filterDishes : List String -> List Dish -> List Dish
+filterDishes tags dishes =
+    List.filter (\dish -> List.all (\tag -> List.member tag (.tags dish)) tags) dishes
+
+
+tagsToList : String -> List String
+tagsToList tags =
+    List.filter (\e -> not (String.isEmpty e)) (List.map String.trim (String.split "," tags))
+
+
+possibleTags : List Dish -> Set String
+possibleTags dishes =
+    Set.fromList (List.concat (List.map .tags dishes))
 
 
 
 -- VIEW
 
 
-stringifyList : List Int -> String
-stringifyList list =
-    String.join ", " (List.map String.fromInt list)
+viewPossibleTags : List Dish -> Html Msg
+viewPossibleTags dishes =
+    text ("Possible tags: " ++ String.join ", " (Set.toList (possibleTags dishes)))
 
 
-listifyString : String -> List Int
-listifyString string =
-    List.filterMap String.toInt (String.split "," string)
+viewDishHeader : () -> Html Msg
+viewDishHeader () =
+    tr []
+        [ th [] [ text "Dish" ]
+        , th [] [ text "Tags" ]
+        , th [] [ text "Desc" ]
+        ]
 
 
-hasValue : Maybe a -> Bool
-hasValue m =
-    case m of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
-
-
-purify : String -> String
-purify s =
-    purifyMap identity s
+viewDishRows : List Dish -> List (Html Msg)
+viewDishRows dishes =
+    List.map
+        (\dish ->
+            tr []
+                [ td [] [ text dish.name ]
+                , td [] [ text (String.join ", " dish.tags) ]
+                , td [] [ text dish.desc ]
+                ]
+        )
+        dishes
 
 
-purifyMap : (Int -> Int) -> String -> String
-purifyMap map s =
-    stringifyList (List.map map (listifyString s))
+viewDishes : List Dish -> Html Msg
+viewDishes dishes =
+    table []
+        (List.concat
+            [ List.singleton (viewDishHeader ()), viewDishRows dishes ]
+        )
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ input [ placeholder "Write your list here", value model, onInput Change ] []
-        , div [] [ text (purify model) ]
-        , div [] [ text (purifyMap (\a -> a * 2) model) ]
-        , div [] [ text (purifyMap (\a -> a ^ 2) model) ]
+        [ input [ placeholder "Write tags here", value model.tagsToSearch, autofocus True, onInput ChangeTags ] []
+        , viewPossibleTags model.dishes
+        , viewDishes (filterDishes (tagsToList model.tagsToSearch) model.dishes)
         ]
