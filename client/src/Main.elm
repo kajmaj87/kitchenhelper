@@ -35,6 +35,7 @@ type alias Dish =
     { name : String
     , tags : List String
     , desc : String
+    , link : String
     }
 
 
@@ -45,14 +46,10 @@ type alias Model =
     }
 
 
-dummyDishes =
-    [ { name = "Pomidorowka", tags = [ "zupa", "proste" ], desc = "Bla bla" }, { name = "Tortilla", tags = [ "szybkie", "proste" ], desc = "Bla tortilla bla" } ]
-
-
 init : () -> ( Model, Cmd Msg )
 init () =
     ( { tagsToSearch = ""
-      , dishes = dummyDishes
+      , dishes = []
       , status = ""
       }
     , Http.get
@@ -67,7 +64,8 @@ dishDecoder =
     D.succeed Dish
         |> P.required "name" D.string
         |> P.required "tags" (D.list D.string)
-        |> P.required "desc" D.string
+        |> P.optional "desc" D.string "-"
+        |> P.optional "link" D.string ""
 
 
 
@@ -104,8 +102,8 @@ tagsToList tags =
     List.filter (\e -> not (String.isEmpty e)) (List.map String.trim (String.split " " tags))
 
 
-possibleTags : List Dish -> Set String
-possibleTags dishes =
+uniqueTags : List Dish -> Set String
+uniqueTags dishes =
     Set.fromList (List.concat (List.map .tags dishes))
 
 
@@ -118,25 +116,32 @@ relevantDishes model =
 -- VIEW
 
 
-viewPossibleTags : List Dish -> Html Msg
-viewPossibleTags dishes =
-    text ("Possible tags: " ++ String.join ", " (Set.toList (possibleTags dishes)))
+viewTags : List String -> Html Msg
+viewTags tags =
+    text ("Possible tags: " ++ String.join ", " tags)
 
 
 viewDishHeader : () -> Html Msg
 viewDishHeader () =
     tr []
         [ th [] [ text "Dish" ]
-        , th [] [ text "Tags" ]
         , th [] [ text "Desc" ]
         ]
+
+
+viewDishNameAsLink : Dish -> Html Msg
+viewDishNameAsLink dish =
+    if dish.link == "" then
+        text dish.name
+
+    else
+        a [ href dish.link, target "_blank" ] [ text dish.name ]
 
 
 viewDishRow : Dish -> Html Msg
 viewDishRow dish =
     tr []
-        [ td [] [ text dish.name ]
-        , td [] [ text (String.join ", " dish.tags) ]
+        [ td [] [ viewDishNameAsLink dish ]
         , td [] [ text dish.desc ]
         ]
 
@@ -150,7 +155,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ input [ placeholder "Write tags here", value model.tagsToSearch, autofocus True, onInput ChangeTags ] []
-        , viewPossibleTags (relevantDishes model)
+        , viewTags (Set.toList (uniqueTags (relevantDishes model)))
         , viewDishes (List.sortBy .name (relevantDishes model))
         , text model.status
         ]
