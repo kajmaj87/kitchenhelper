@@ -10,3 +10,5 @@ let g:elm_make_show_warnings = 1
 source .cocvimrc
 
 nmap <F2> :w<CR>]g
+nmap <F3> :w<CR>:!elm make src/Main.elm<CR><CR>
+nmap <F5> <F3>:!scp ~/projects/kitchen_helper/server/* pi@192.168.1.231:/var/www/html<CR><CR>
