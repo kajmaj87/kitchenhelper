@@ -11,4 +11,4 @@ source .cocvimrc
 
 nmap <F2> :w<CR>]g
 nmap <F3> :w<CR>:!elm make src/Main.elm<CR><CR>
-nmap <F5> <F3>:!scp ~/projects/kitchen_helper/server/* pi@192.168.1.231:/var/www/html<CR><CR>
+nmap <F5> <F3>:!scp ~/projects/kitchen_helper/server/index.html jsonserver@192.168.1.231:~/public<CR>:!scp ~/projects/kitchen_helper/server/db.json jsonserver@192.168.1.231:~<CR><CR>

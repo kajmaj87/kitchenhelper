@@ -53,7 +53,7 @@ init () =
       , status = ""
       }
     , Http.get
-        { url = "http://192.168.1.231:8080/dishes.json"
+        { url = "/dishes"
         , expect = Http.expectJson GotJson (D.list dishDecoder)
         }
     )
@@ -86,10 +86,10 @@ update msg model =
         GotJson result ->
             case result of
                 Ok newDishes ->
-                    ( { model | dishes = newDishes }, Cmd.none )
+                    ( { model | dishes = List.map tagsToLowercase newDishes }, Cmd.none )
 
-                Err _ ->
-                    ( { model | status = "Error loading data" }, Cmd.none )
+                Err error ->
+                    ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
 
 
 filterDishes : List String -> List Dish -> List Dish
@@ -100,6 +100,11 @@ filterDishes tags dishes =
 tagsToList : String -> List String
 tagsToList tags =
     List.filter (\e -> not (String.isEmpty e)) (List.map String.trim (String.split " " tags))
+
+
+tagsToLowercase : Dish -> Dish
+tagsToLowercase dish =
+    { dish | tags = List.map String.toLower dish.tags }
 
 
 uniqueTags : List Dish -> Set String
@@ -118,7 +123,7 @@ relevantDishes model =
 
 viewTags : List String -> Html Msg
 viewTags tags =
-    text ("Possible tags: " ++ String.join ", " tags)
+    text ("Possible tags: " ++ String.join ", " (List.sort tags))
 
 
 viewDishHeader : () -> Html Msg
