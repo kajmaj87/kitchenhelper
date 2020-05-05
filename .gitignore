@@ -1,4 +1,5 @@
 client/.elm
 client/elm-stuff
 */index.html
-server
+server/db.json
+server/public/elm.js
