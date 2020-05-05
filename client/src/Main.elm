@@ -123,7 +123,7 @@ relevantDishes model =
 
 viewTags : List String -> Html Msg
 viewTags tags =
-    button [ type_ "btn", class "btn btn-primary", title "You can choose from: ", attribute "data-toggle" "popover", attribute "data-content" (String.join ", " (List.sort tags)) ] [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length tags)) ] ]
+    button [ type_ "btn", class "btn btn-primary", title "You can choose from: ", attribute "data-toggle" "popover", attribute "data-trigger" "focus", attribute "data-content" (String.join ", " (List.sort tags)) ] [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length tags)) ] ]
 
 
 viewDishHeader : () -> Html Msg
