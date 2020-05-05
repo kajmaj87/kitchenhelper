@@ -121,9 +121,23 @@ relevantDishes model =
 -- VIEW
 
 
-viewTags : List String -> Html Msg
-viewTags tags =
-    button [ type_ "btn", class "btn btn-primary", title "You can choose from: ", attribute "data-toggle" "popover", attribute "data-trigger" "focus", attribute "data-content" (String.join ", " (List.sort tags)) ] [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length tags)) ] ]
+viewTags : Model -> List String -> Html Msg
+viewTags model tags =
+    div [ class "form-row align-items-center m-3" ]
+        [ div [ class "col-auto" ]
+            [ input [ class "form-control", placeholder "Write tags here", value model.tagsToSearch, autofocus True, onInput ChangeTags ] [] ]
+        , div [ class "col-auto" ]
+            [ button
+                [ type_ "btn"
+                , class "btn btn-primary"
+                , title "You can choose from: "
+                , attribute "data-toggle" "popover"
+                , attribute "data-trigger" "focus"
+                , attribute "data-content" (String.join ", " (List.sort tags))
+                ]
+                [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length tags)) ] ]
+            ]
+        ]
 
 
 viewDishHeader : () -> Html Msg
@@ -159,8 +173,7 @@ viewDishes dishes =
 view : Model -> Html Msg
 view model =
     div []
-        [ input [ placeholder "Write tags here", value model.tagsToSearch, autofocus True, onInput ChangeTags ] []
-        , viewTags (Set.toList (uniqueTags (relevantDishes model)))
+        [ viewTags model (Set.toList (uniqueTags (relevantDishes model)))
         , viewDishes (List.sortBy .name (relevantDishes model))
         , text model.status
         ]
