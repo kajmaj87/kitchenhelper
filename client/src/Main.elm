@@ -142,9 +142,11 @@ viewTags model tags =
 
 viewDishHeader : () -> Html Msg
 viewDishHeader () =
-    tr []
-        [ th [] [ text "Dish" ]
-        , th [] [ text "Desc" ]
+    thead []
+        [ tr []
+            [ th [] [ text "Dish" ]
+            , th [] [ text "Desc" ]
+            ]
         ]
 
 
@@ -167,7 +169,7 @@ viewDishRow dish =
 
 viewDishes : List Dish -> Html Msg
 viewDishes dishes =
-    table [ class "table table-hover table-responsive table-striped" ] (viewDishHeader () :: List.map viewDishRow dishes)
+    table [ class "table table-hover table-responsive table-striped" ] [ viewDishHeader (), tbody [] (List.map viewDishRow dishes) ]
 
 
 view : Model -> Html Msg
