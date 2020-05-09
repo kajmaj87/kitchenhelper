@@ -7,6 +7,7 @@ import Html.Events exposing (onClick, onInput)
 import Http exposing (..)
 import Json.Decode as D exposing (decodeString, list, string)
 import Json.Decode.Pipeline as P exposing (required)
+import Json.Encode as E exposing (object)
 import Set exposing (Set)
 
 
@@ -39,7 +40,8 @@ port sendMessage : String -> Cmd msg
 
 
 type alias Dish =
-    { name : String
+    { id : Maybe Int
+    , name : String
     , tags : List String
     , desc : String
     , link : String
@@ -63,14 +65,55 @@ init () =
       }
     , Http.get
         { url = "/dishes"
-        , expect = Http.expectJson GotJson (D.list dishDecoder)
+        , expect = Http.expectJson GotDishesListJson (D.list dishDecoder)
         }
     )
+
+
+saveDish : Dish -> Cmd Msg
+saveDish dish =
+    case dish.id of
+        -- this is the update case
+        Just id ->
+            Http.request
+                { method = "PUT"
+                , headers = []
+                , url = "/dishes/" ++ String.fromInt id
+                , body = Http.jsonBody (dishEncoder dish)
+                , expect = Http.expectJson GotSingleDishJson dishDecoder
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+
+        Nothing ->
+            Cmd.none
+
+
+idEncoder : Maybe Int -> E.Value
+idEncoder maybeId =
+    case maybeId of
+        Just id ->
+            E.int id
+
+        Nothing ->
+            E.null
+
+
+dishEncoder : Dish -> E.Value
+dishEncoder dish =
+    E.object
+        [ ( "id", idEncoder dish.id )
+        , ( "name", E.string dish.name )
+        , ( "tags", E.list E.string dish.tags )
+        , ( "desc", E.string dish.desc )
+        , ( "link", E.string dish.link )
+        ]
 
 
 dishDecoder : D.Decoder Dish
 dishDecoder =
     D.succeed Dish
+        |> P.required "id" (D.maybe D.int)
         |> P.required "name" D.string
         |> P.required "tags" (D.list D.string)
         |> P.optional "desc" D.string "-"
@@ -88,8 +131,10 @@ type Msg
     | ChangeDesc Dish String
     | ChangeLink Dish String
     | StartEditing Dish
+    | SaveDish Dish
     | SaveToStatusField String
-    | GotJson (Result Http.Error (List Dish))
+    | GotSingleDishJson (Result Http.Error Dish)
+    | GotDishesListJson (Result Http.Error (List Dish))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -113,16 +158,46 @@ update msg model =
         StartEditing dish ->
             ( { model | currentlyEdited = Just dish }, sendMessage "openModal" )
 
+        SaveDish dish ->
+            ( { model | currentlyEdited = Nothing }, Cmd.batch [ sendMessage "closeModal", saveDish dish ] )
+
         SaveToStatusField value ->
             ( { model | status = Debug.log "Status: " value }, Cmd.none )
 
-        GotJson result ->
+        GotSingleDishJson result ->
+            case result of
+                Ok dish ->
+                    ( { model | dishes = List.map (replaceWhenIdMatches dish.id dish) model.dishes }, Cmd.none )
+
+                Err error ->
+                    ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
+
+        GotDishesListJson result ->
             case result of
                 Ok newDishes ->
                     ( { model | dishes = List.map tagsToLowercase newDishes }, Cmd.none )
 
                 Err error ->
                     ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
+
+
+replaceWhenIdMatches : Maybe Int -> Dish -> Dish -> Dish
+replaceWhenIdMatches maybeId newDish oldDish =
+    case maybeId of
+        Just id ->
+            case oldDish.id of
+                Just oldId ->
+                    if oldId == id then
+                        newDish
+
+                    else
+                        oldDish
+
+                Nothing ->
+                    oldDish
+
+        Nothing ->
+            oldDish
 
 
 filterDishes : List String -> List Dish -> List Dish
@@ -162,7 +237,7 @@ dishOrDefualt dish =
             d
 
         Nothing ->
-            Dish "Empty dish" [] "No description" ""
+            Dish Nothing "Empty dish" [] "No description" ""
 
 
 
@@ -246,7 +321,7 @@ viewEditDialogForm dish =
     form []
         [ div [ class "form-group" ]
             [ label [ for "dish-name", class "col-form-label" ] [ text "Name: " ]
-            , input [ id "dish-name", type_ "text", class "form-control", value dish.name, onInput (ChangeName dish) ] []
+            , input [ id "dish-name", type_ "text", class "form-control", autofocus True, value dish.name, onInput (ChangeName dish) ] []
             ]
         , div
             [ class "form-group" ]
@@ -266,11 +341,11 @@ viewEditDialogForm dish =
         ]
 
 
-viewEditDialogFooter : () -> Html Msg
-viewEditDialogFooter () =
+viewEditDialogFooter : Dish -> Html Msg
+viewEditDialogFooter dish =
     div [ class "modal-footer" ]
         [ button [ class "btn btn-secondary", attribute "data-dismiss" "modal" ] [ text "Close" ]
-        , button [ class "btn btn-primary" ] [ text "Save" ]
+        , button [ class "btn btn-primary", onClick (SaveDish dish) ] [ text "Save" ]
         ]
 
 
@@ -280,7 +355,7 @@ viewEditDialog dish =
         [ div [ class "modal-dialog", attribute "role" "document" ]
             [ div [ class "modal-content" ]
                 [ div [ class "modal-body" ] [ viewEditDialogForm dish ]
-                , viewEditDialogFooter ()
+                , viewEditDialogFooter dish
                 ]
             ]
         ]
