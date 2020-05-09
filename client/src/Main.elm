@@ -352,24 +352,22 @@ viewTopBar model =
             uniqueTags (relevantDishes tagsSource)
     in
     div [ class "form-row align-items-center m-3" ]
-        [ div [ class "col-auto" ]
+        [ div [ class "col col-6 col-lg-4" ]
             [ input
                 [ class "form-control"
-                , placeholder "Write tags here"
+                , placeholder "Write here"
                 , value model.tagsToSearch
                 , autofocus True
                 , onInput ChangeSearchTags
                 ]
                 []
             ]
-        , div [ class "col-auto" ]
+        , div [ class "col col-6 align-items-center" ]
             [ viewButtonWithPopover
                 "You can choose from: "
                 (tagsToString (uniqueRelevantTags model))
                 [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length (uniqueRelevantTags model))) ] ]
-            ]
-        , div [ class "col-auto" ]
-            [ button [ class "btn btn-success", onClick (StartEditing (Dish Nothing "" [] "" "")) ]
+            , button [ class "btn btn-success ml-2", onClick (StartEditing (Dish Nothing "" [] "" "")) ]
                 [ text "Add" ]
             ]
         ]
