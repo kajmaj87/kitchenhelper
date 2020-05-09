@@ -52,6 +52,7 @@ type alias Model =
     { tagsToSearch : String
     , dishes : List Dish
     , currentlyEdited : Maybe Dish
+    , rawTags : String
     , status : String
     }
 
@@ -61,6 +62,7 @@ init () =
     ( { tagsToSearch = ""
       , dishes = []
       , currentlyEdited = Nothing
+      , rawTags = ""
       , status = ""
       }
     , Http.get
@@ -149,7 +151,7 @@ dishDecoder =
 type Msg
     = ChangeSearchTags String
     | ChangeName Dish String
-    | ChangeTags Dish String
+    | ChangeTags String
     | ChangeDesc Dish String
     | ChangeLink Dish String
     | StartEditing Dish
@@ -170,8 +172,8 @@ update msg model =
         ChangeName dish new ->
             ( { model | currentlyEdited = Just { dish | name = Debug.log "Setting new name to: " new } }, Cmd.none )
 
-        ChangeTags dish new ->
-            ( { model | currentlyEdited = Just { dish | tags = Debug.log "Setting tags name to: " (tagsToList new) } }, Cmd.none )
+        ChangeTags new ->
+            ( { model | rawTags = new }, Cmd.none )
 
         ChangeDesc dish new ->
             ( { model | currentlyEdited = Just { dish | desc = Debug.log "Setting desc name to: " new } }, Cmd.none )
@@ -180,10 +182,10 @@ update msg model =
             ( { model | currentlyEdited = Just { dish | link = Debug.log "Setting link name to: " new } }, Cmd.none )
 
         StartEditing dish ->
-            ( { model | currentlyEdited = Just dish }, sendMessage "openModal" )
+            ( { model | currentlyEdited = Just dish, rawTags = tagsToString dish.tags }, sendMessage "openModal" )
 
         SaveDish dish ->
-            ( { model | currentlyEdited = Nothing }, saveDish dish )
+            ( { model | currentlyEdited = Nothing }, saveDish { dish | tags = tagsToList model.rawTags } )
 
         DeleteDish dish ->
             ( model, deleteDish dish )
@@ -373,8 +375,8 @@ viewTopBar model =
         ]
 
 
-viewEditDialogForm : Dish -> Html Msg
-viewEditDialogForm dish =
+viewEditDialogForm : String -> Dish -> Html Msg
+viewEditDialogForm currentTags dish =
     form []
         [ div [ class "form-group" ]
             [ label [ for "dish-name", class "col-form-label" ] [ text "Name: " ]
@@ -383,7 +385,7 @@ viewEditDialogForm dish =
         , div
             [ class "form-group" ]
             [ label [ for "dish-tags", class "col-form-label" ] [ text "Tags: " ]
-            , textarea [ id "dish-tags", class "form-control", value (tagsToString dish.tags), onInput (ChangeTags dish) ] []
+            , textarea [ id "dish-tags", class "form-control", value currentTags, onInput ChangeTags ] []
             ]
         , div
             [ class "form-group" ]
@@ -420,13 +422,13 @@ viewEditDialogFooter dish =
         ]
 
 
-viewEditDialog : Dish -> Html Msg
-viewEditDialog dish =
+viewEditDialog : Model -> Html Msg
+viewEditDialog model =
     div [ class "modal fade", id "modal", tabindex -1, attribute "role" "dialog" ]
         [ div [ class "modal-dialog", attribute "role" "document" ]
             [ div [ class "modal-content" ]
-                [ div [ class "modal-body" ] [ viewEditDialogForm dish ]
-                , viewEditDialogFooter dish
+                [ div [ class "modal-body" ] [ viewEditDialogForm model.rawTags (dishOrDefualt model.currentlyEdited) ]
+                , viewEditDialogFooter (dishOrDefualt model.currentlyEdited)
                 ]
             ]
         ]
@@ -435,7 +437,7 @@ viewEditDialog dish =
 view : Model -> Html Msg
 view model =
     div []
-        [ viewEditDialog (dishOrDefualt model.currentlyEdited)
+        [ viewEditDialog model
         , viewTopBar model
         , viewDishes (List.sortBy .name (relevantDishes model))
         , text model.status
