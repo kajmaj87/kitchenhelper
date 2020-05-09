@@ -10,5 +10,5 @@ let g:elm_make_show_warnings = 1
 source .cocvimrc
 
 nmap <F2> :w<CR>]g
-nmap <F3> :w<CR>:!elm make --output /home/kajman/projects/kitchen_helper/server/public/elm.js src/Main.elm<CR>
+nmap <F3> :w<CR>:!clear<CR>:!elm make --output /home/kajman/projects/kitchen_helper/server/public/elm.js src/Main.elm<CR>
 nmap <F5> <F3><CR>:!rsync -vrh /home/kajman/projects/kitchen_helper/server/* jsonserver@192.168.1.231:~/<CR>

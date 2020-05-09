@@ -2,7 +2,7 @@ port module Main exposing (..)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (attribute, autofocus, class, for, href, id, placeholder, tabindex, target, title, type_, value)
+import Html.Attributes exposing (attribute, autofocus, class, for, href, id, placeholder, src, tabindex, target, title, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http exposing (..)
 import Json.Decode as D exposing (decodeString, list, string)
@@ -86,6 +86,28 @@ saveDish dish =
                 }
 
         Nothing ->
+            Http.post
+                { url = "/dishes"
+                , body = Http.jsonBody (dishEncoder dish)
+                , expect = Http.expectJson GotSingleDishJson dishDecoder
+                }
+
+
+deleteDish : Dish -> Cmd Msg
+deleteDish dish =
+    case dish.id of
+        Just id ->
+            Http.request
+                { method = "DELETE"
+                , headers = []
+                , url = "/dishes/" ++ String.fromInt id
+                , body = Http.emptyBody
+                , expect = Http.expectWhatever Deleted
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+
+        Nothing ->
             Cmd.none
 
 
@@ -132,6 +154,8 @@ type Msg
     | ChangeLink Dish String
     | StartEditing Dish
     | SaveDish Dish
+    | DeleteDish Dish
+    | Deleted (Result Http.Error ())
     | SaveToStatusField String
     | GotSingleDishJson (Result Http.Error Dish)
     | GotDishesListJson (Result Http.Error (List Dish))
@@ -159,15 +183,26 @@ update msg model =
             ( { model | currentlyEdited = Just dish }, sendMessage "openModal" )
 
         SaveDish dish ->
-            ( { model | currentlyEdited = Nothing }, Cmd.batch [ sendMessage "closeModal", saveDish dish ] )
+            ( { model | currentlyEdited = Nothing }, saveDish dish )
+
+        DeleteDish dish ->
+            ( model, deleteDish dish )
 
         SaveToStatusField value ->
             ( { model | status = Debug.log "Status: " value }, Cmd.none )
 
+        Deleted result ->
+            case result of
+                Ok () ->
+                    ( { model | currentlyEdited = Nothing, dishes = removeDishById model.currentlyEdited model.dishes }, Cmd.none )
+
+                Err error ->
+                    ( { model | currentlyEdited = Nothing, status = "Error deleting data " ++ Debug.toString error ++ " when deleting " ++ Debug.toString model.currentlyEdited }, Cmd.none )
+
         GotSingleDishJson result ->
             case result of
                 Ok dish ->
-                    ( { model | dishes = List.map (replaceWhenIdMatches dish.id dish) model.dishes }, Cmd.none )
+                    ( { model | dishes = addOrReplaceBasedOnId dish.id dish model.dishes }, Cmd.none )
 
                 Err error ->
                     ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
@@ -181,20 +216,39 @@ update msg model =
                     ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
 
 
-replaceWhenIdMatches : Maybe Int -> Dish -> Dish -> Dish
-replaceWhenIdMatches maybeId newDish oldDish =
+addOrReplaceBasedOnId : Maybe Int -> Dish -> List Dish -> List Dish
+addOrReplaceBasedOnId maybeId newDish dishes =
     case maybeId of
         Just id ->
-            case oldDish.id of
-                Just oldId ->
-                    if oldId == id then
-                        newDish
+            if List.member (Just id) (List.map .id dishes) then
+                List.map (replaceWhenIdMatches id newDish) dishes
 
-                    else
-                        oldDish
+            else
+                newDish :: dishes
 
-                Nothing ->
-                    oldDish
+        Nothing ->
+            dishes
+
+
+removeDishById : Maybe Dish -> List Dish -> List Dish
+removeDishById maybeDish dishes =
+    case maybeDish of
+        Just dish ->
+            List.filter (\listDish -> dish.id /= listDish.id) dishes
+
+        Nothing ->
+            Debug.log "Not removed anything" dishes
+
+
+replaceWhenIdMatches : Int -> Dish -> Dish -> Dish
+replaceWhenIdMatches id newDish oldDish =
+    case oldDish.id of
+        Just oldId ->
+            if oldId == id then
+                newDish
+
+            else
+                oldDish
 
         Nothing ->
             oldDish
@@ -220,9 +274,9 @@ tagsToLowercase dish =
     { dish | tags = List.map String.toLower dish.tags }
 
 
-uniqueTags : List Dish -> Set String
+uniqueTags : List Dish -> List String
 uniqueTags dishes =
-    Set.fromList (List.concat (List.map .tags dishes))
+    Set.toList (Set.fromList (List.concat (List.map .tags dishes)))
 
 
 relevantDishes : Model -> List Dish
@@ -289,31 +343,34 @@ viewButtonWithPopover popupTitle popupText buttonContents =
         buttonContents
 
 
-viewTags : Model -> List String -> List (Html Msg)
-viewTags model tags =
-    [ div [ class "col-auto" ]
-        [ input
-            [ class "form-control"
-            , placeholder "Write tags here"
-            , value model.tagsToSearch
-            , autofocus True
-            , onInput ChangeSearchTags
-            ]
-            []
-        ]
-    , div [ class "col-auto" ]
-        [ viewButtonWithPopover
-            "You can choose from: "
-            (tagsToString tags)
-            [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length tags)) ] ]
-        ]
-    ]
-
-
 viewTopBar : Model -> Html Msg
 viewTopBar model =
+    let
+        uniqueRelevantTags tagsSource =
+            uniqueTags (relevantDishes tagsSource)
+    in
     div [ class "form-row align-items-center m-3" ]
-        (viewTags model (Set.toList (uniqueTags (relevantDishes model))))
+        [ div [ class "col-auto" ]
+            [ input
+                [ class "form-control"
+                , placeholder "Write tags here"
+                , value model.tagsToSearch
+                , autofocus True
+                , onInput ChangeSearchTags
+                ]
+                []
+            ]
+        , div [ class "col-auto" ]
+            [ viewButtonWithPopover
+                "You can choose from: "
+                (tagsToString (uniqueRelevantTags model))
+                [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length (uniqueRelevantTags model))) ] ]
+            ]
+        , div [ class "col-auto" ]
+            [ button [ class "btn btn-success", onClick (StartEditing (Dish Nothing "" [] "" "")) ]
+                [ text "Add" ]
+            ]
+        ]
 
 
 viewEditDialogForm : Dish -> Html Msg
@@ -344,8 +401,22 @@ viewEditDialogForm dish =
 viewEditDialogFooter : Dish -> Html Msg
 viewEditDialogFooter dish =
     div [ class "modal-footer" ]
-        [ button [ class "btn btn-secondary", attribute "data-dismiss" "modal" ] [ text "Close" ]
-        , button [ class "btn btn-primary", onClick (SaveDish dish) ] [ text "Save" ]
+        [ button
+            [ class
+                ("btn btn-danger"
+                    ++ (if dish.id == Nothing then
+                            " d-none"
+
+                        else
+                            ""
+                       )
+                )
+            , attribute "data-dismiss" "modal"
+            , onClick (DeleteDish dish)
+            ]
+            [ text "Delete" ]
+        , button [ class "btn btn-secondary", attribute "data-dismiss" "modal" ] [ text "Close" ]
+        , button [ class "btn btn-primary", attribute "data-dismiss" "modal", onClick (SaveDish dish) ] [ text "Save" ]
         ]
 
 
