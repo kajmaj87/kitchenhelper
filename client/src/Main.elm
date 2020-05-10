@@ -1,5 +1,7 @@
 port module Main exposing (..)
 
+-- IMPORTS
+
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (attribute, autofocus, class, for, href, id, placeholder, src, tabindex, target, title, type_, value)
@@ -36,25 +38,8 @@ port sendMessage : String -> Cmd msg
 
 
 
--- MODEL
-
-
-type alias Dish =
-    { id : Maybe Int
-    , name : String
-    , tags : List String
-    , desc : String
-    , link : String
-    }
-
-
-type alias Model =
-    { tagsToSearch : String
-    , dishes : List Dish
-    , currentlyEdited : Maybe Dish
-    , rawTags : String
-    , status : String
-    }
+-- TYPES
+--- MODEL
 
 
 init : () -> ( Model, Cmd Msg )
@@ -70,6 +55,38 @@ init () =
         , expect = Http.expectJson GotDishesListJson (D.list dishDecoder)
         }
     )
+
+
+type alias Model =
+    { tagsToSearch : String
+    , dishes : List Dish
+    , currentlyEdited : Maybe Dish
+    , rawTags : String
+    , status : String
+    }
+
+
+
+--- DISH
+
+
+type alias Dish =
+    { id : Maybe Int
+    , name : String
+    , tags : List String
+    , desc : String
+    , link : String
+    }
+
+
+dishOrDefualt : Maybe Dish -> Dish
+dishOrDefualt dish =
+    case dish of
+        Just d ->
+            d
+
+        Nothing ->
+            Dish Nothing "Empty dish" [] "No description" ""
 
 
 saveDish : Dish -> Cmd Msg
@@ -144,80 +161,6 @@ dishDecoder =
         |> P.optional "link" D.string ""
 
 
-
--- UPDATE
-
-
-type Msg
-    = ChangeSearchTags String
-    | ChangeName Dish String
-    | ChangeTags String
-    | ChangeDesc Dish String
-    | ChangeLink Dish String
-    | StartEditing Dish
-    | SaveDish Dish
-    | DeleteDish Dish
-    | Deleted (Result Http.Error ())
-    | SaveToStatusField String
-    | GotSingleDishJson (Result Http.Error Dish)
-    | GotDishesListJson (Result Http.Error (List Dish))
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        ChangeSearchTags newTags ->
-            ( { model | tagsToSearch = newTags }, Cmd.none )
-
-        ChangeName dish new ->
-            ( { model | currentlyEdited = Just { dish | name = Debug.log "Setting new name to: " new } }, Cmd.none )
-
-        ChangeTags new ->
-            ( { model | rawTags = new }, Cmd.none )
-
-        ChangeDesc dish new ->
-            ( { model | currentlyEdited = Just { dish | desc = Debug.log "Setting desc name to: " new } }, Cmd.none )
-
-        ChangeLink dish new ->
-            ( { model | currentlyEdited = Just { dish | link = Debug.log "Setting link name to: " new } }, Cmd.none )
-
-        StartEditing dish ->
-            ( { model | currentlyEdited = Just dish, rawTags = tagsToString dish.tags }, sendMessage "openModal" )
-
-        SaveDish dish ->
-            ( { model | currentlyEdited = Nothing }, saveDish { dish | tags = tagsToList model.rawTags } )
-
-        DeleteDish dish ->
-            ( model, deleteDish dish )
-
-        SaveToStatusField value ->
-            ( { model | status = Debug.log "Status: " value }, Cmd.none )
-
-        Deleted result ->
-            case result of
-                Ok () ->
-                    ( { model | currentlyEdited = Nothing, dishes = removeDishById model.currentlyEdited model.dishes }, Cmd.none )
-
-                Err error ->
-                    ( { model | currentlyEdited = Nothing, status = "Error deleting data " ++ Debug.toString error ++ " when deleting " ++ Debug.toString model.currentlyEdited }, Cmd.none )
-
-        GotSingleDishJson result ->
-            case result of
-                Ok dish ->
-                    ( { model | dishes = addOrReplaceBasedOnId dish.id dish model.dishes }, Cmd.none )
-
-                Err error ->
-                    ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
-
-        GotDishesListJson result ->
-            case result of
-                Ok newDishes ->
-                    ( { model | dishes = List.map tagsToLowercase newDishes }, Cmd.none )
-
-                Err error ->
-                    ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
-
-
 addOrReplaceBasedOnId : Maybe Int -> Dish -> List Dish -> List Dish
 addOrReplaceBasedOnId maybeId newDish dishes =
     case maybeId of
@@ -261,6 +204,15 @@ filterDishes tags dishes =
     List.filter (\dish -> List.all (\tag -> List.member tag (.tags dish)) tags) dishes
 
 
+relevantDishes : Model -> List Dish
+relevantDishes model =
+    filterDishes (tagsToList model.tagsToSearch) model.dishes
+
+
+
+--- TAG
+
+
 tagsToList : String -> List String
 tagsToList tags =
     List.filter (\e -> not (String.isEmpty e)) (List.map String.trim (String.split " " tags))
@@ -281,55 +233,22 @@ uniqueTags dishes =
     Set.toList (Set.fromList (List.concat (List.map .tags dishes)))
 
 
-relevantDishes : Model -> List Dish
-relevantDishes model =
-    filterDishes (tagsToList model.tagsToSearch) model.dishes
-
-
-dishOrDefualt : Maybe Dish -> Dish
-dishOrDefualt dish =
-    case dish of
-        Just d ->
-            d
-
-        Nothing ->
-            Dish Nothing "Empty dish" [] "No description" ""
-
-
 
 -- VIEW
 
 
-viewDishHeader : () -> Html Msg
-viewDishHeader () =
-    thead []
-        [ tr []
-            [ th [] [ text "Dish" ]
-            , th [] [ text "Desc" ]
-            ]
+view : Model -> Html Msg
+view model =
+    div []
+        [ viewEditDialog model
+        , viewTopBar model
+        , viewDishes (List.sortBy .name (relevantDishes model))
+        , text model.status
         ]
 
 
-viewDishNameAsLink : Dish -> Html Msg
-viewDishNameAsLink dish =
-    if dish.link == "" then
-        text dish.name
 
-    else
-        a [ href dish.link, target "_blank" ] [ text dish.name ]
-
-
-viewDishRow : Dish -> Html Msg
-viewDishRow dish =
-    tr []
-        [ td [] [ viewDishNameAsLink dish ]
-        , td [ onClick (StartEditing dish) ] [ text dish.desc ]
-        ]
-
-
-viewDishes : List Dish -> Html Msg
-viewDishes dishes =
-    table [ class "table table-hover table-responsive table-striped" ] [ viewDishHeader (), tbody [] (List.map viewDishRow dishes) ]
+--- top bar
 
 
 viewButtonWithPopover : String -> String -> List (Html Msg) -> Html Msg
@@ -369,6 +288,58 @@ viewTopBar model =
                 [ text "Tags ", span [ class "badge badge-light" ] [ text (String.fromInt (List.length (uniqueRelevantTags model))) ] ]
             , button [ class "btn btn-success ml-2", onClick (StartEditing (Dish Nothing "" [] "" "")) ]
                 [ text "Add" ]
+            ]
+        ]
+
+
+
+--- dish table
+
+
+viewDishHeader : () -> Html Msg
+viewDishHeader () =
+    thead []
+        [ tr []
+            [ th [] [ text "Dish" ]
+            , th [] [ text "Desc" ]
+            ]
+        ]
+
+
+viewDishNameAsLink : Dish -> Html Msg
+viewDishNameAsLink dish =
+    if dish.link == "" then
+        text dish.name
+
+    else
+        a [ href dish.link, target "_blank" ] [ text dish.name ]
+
+
+viewDishRow : Dish -> Html Msg
+viewDishRow dish =
+    tr []
+        [ td [] [ viewDishNameAsLink dish ]
+        , td [ onClick (StartEditing dish) ] [ text dish.desc ]
+        ]
+
+
+viewDishes : List Dish -> Html Msg
+viewDishes dishes =
+    table [ class "table table-hover table-responsive table-striped" ] [ viewDishHeader (), tbody [] (List.map viewDishRow dishes) ]
+
+
+
+--- edit dialog
+
+
+viewEditDialog : Model -> Html Msg
+viewEditDialog model =
+    div [ class "modal fade", id "modal", tabindex -1, attribute "role" "dialog" ]
+        [ div [ class "modal-dialog", attribute "role" "document" ]
+            [ div [ class "modal-content" ]
+                [ div [ class "modal-body" ] [ viewEditDialogForm model.rawTags (dishOrDefualt model.currentlyEdited) ]
+                , viewEditDialogFooter (dishOrDefualt model.currentlyEdited)
+                ]
             ]
         ]
 
@@ -417,26 +388,4 @@ viewEditDialogFooter dish =
             [ text "Delete" ]
         , button [ class "btn btn-secondary", attribute "data-dismiss" "modal" ] [ text "Close" ]
         , button [ class "btn btn-primary", attribute "data-dismiss" "modal", onClick (SaveDish dish) ] [ text "Save" ]
-        ]
-
-
-viewEditDialog : Model -> Html Msg
-viewEditDialog model =
-    div [ class "modal fade", id "modal", tabindex -1, attribute "role" "dialog" ]
-        [ div [ class "modal-dialog", attribute "role" "document" ]
-            [ div [ class "modal-content" ]
-                [ div [ class "modal-body" ] [ viewEditDialogForm model.rawTags (dishOrDefualt model.currentlyEdited) ]
-                , viewEditDialogFooter (dishOrDefualt model.currentlyEdited)
-                ]
-            ]
-        ]
-
-
-view : Model -> Html Msg
-view model =
-    div []
-        [ viewEditDialog model
-        , viewTopBar model
-        , viewDishes (List.sortBy .name (relevantDishes model))
-        , text model.status
         ]
