@@ -446,20 +446,23 @@ viewEditDialogForm currentTags dish =
 viewEditDialogFooter : Dish -> Html Msg
 viewEditDialogFooter dish =
     div [ class "modal-footer" ]
-        [ button
-            [ class
-                ("btn btn-danger"
-                    ++ (if dish.id == Nothing then
-                            " d-none"
+        [ div [ class "container" ]
+            [ div [ class "row justify-content-between" ]
+                [ button
+                    [ class
+                        ("btn btn-danger"
+                            ++ (if dish.id == Nothing then
+                                    " d-none"
 
-                        else
-                            ""
-                       )
-                )
-            , attribute "data-dismiss" "modal"
-            , onClick (DeleteDish dish)
+                                else
+                                    ""
+                               )
+                        )
+                    , attribute "data-dismiss" "modal"
+                    , onClick (DeleteDish dish)
+                    ]
+                    [ text "Delete" ]
+                , button [ class "btn btn-primary", attribute "data-dismiss" "modal", onClick (SaveDish dish) ] [ text "Save" ]
+                ]
             ]
-            [ text "Delete" ]
-        , button [ class "btn btn-secondary", attribute "data-dismiss" "modal" ] [ text "Close" ]
-        , button [ class "btn btn-primary", attribute "data-dismiss" "modal", onClick (SaveDish dish) ] [ text "Save" ]
         ]
