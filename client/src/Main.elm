@@ -38,6 +38,80 @@ port sendMessage : String -> Cmd msg
 
 
 
+-- UPDATE
+
+
+type Msg
+    = ChangeSearchTags String
+    | ChangeName Dish String
+    | ChangeTags String
+    | ChangeDesc Dish String
+    | ChangeLink Dish String
+    | StartEditing Dish
+    | SaveDish Dish
+    | DeleteDish Dish
+    | Deleted (Result Http.Error ())
+    | SaveToStatusField String
+    | GotSingleDishJson (Result Http.Error Dish)
+    | GotDishesListJson (Result Http.Error (List Dish))
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        ChangeSearchTags newTags ->
+            ( { model | tagsToSearch = newTags }, Cmd.none )
+
+        ChangeName dish new ->
+            ( { model | currentlyEdited = Just { dish | name = Debug.log "Setting new name to: " new } }, Cmd.none )
+
+        ChangeTags new ->
+            ( { model | rawTags = new }, Cmd.none )
+
+        ChangeDesc dish new ->
+            ( { model | currentlyEdited = Just { dish | desc = Debug.log "Setting desc name to: " new } }, Cmd.none )
+
+        ChangeLink dish new ->
+            ( { model | currentlyEdited = Just { dish | link = Debug.log "Setting link name to: " new } }, Cmd.none )
+
+        StartEditing dish ->
+            ( { model | currentlyEdited = Just dish, rawTags = tagsToString dish.tags }, sendMessage "openModal" )
+
+        SaveDish dish ->
+            ( { model | currentlyEdited = Nothing }, saveDish { dish | tags = tagsToList model.rawTags } )
+
+        DeleteDish dish ->
+            ( model, deleteDish dish )
+
+        SaveToStatusField value ->
+            ( { model | status = Debug.log "Status: " value }, Cmd.none )
+
+        Deleted result ->
+            case result of
+                Ok () ->
+                    ( { model | currentlyEdited = Nothing, dishes = removeDishById model.currentlyEdited model.dishes }, Cmd.none )
+
+                Err error ->
+                    ( { model | currentlyEdited = Nothing, status = "Error deleting data " ++ Debug.toString error ++ " when deleting " ++ Debug.toString model.currentlyEdited }, Cmd.none )
+
+        GotSingleDishJson result ->
+            case result of
+                Ok dish ->
+                    ( { model | dishes = addOrReplaceBasedOnId dish.id dish model.dishes }, Cmd.none )
+
+                Err error ->
+                    ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
+
+        GotDishesListJson result ->
+            case result of
+                Ok newDishes ->
+                    ( { model | dishes = List.map tagsToLowercase newDishes }, Cmd.none )
+
+                Err error ->
+                    ( { model | status = "Error loading data " ++ Debug.toString error }, Cmd.none )
+
+
+
 -- TYPES
 --- MODEL
 
@@ -206,11 +280,11 @@ filterDishes tags dishes =
 
 relevantDishes : Model -> List Dish
 relevantDishes model =
-    filterDishes (tagsToList model.tagsToSearch) model.dishes
+    filterDishes (tagsToList (String.toLower model.tagsToSearch)) model.dishes
 
 
 
---- TAG
+--- TAGS
 
 
 tagsToList : String -> List String
