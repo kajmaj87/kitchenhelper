@@ -63,22 +63,22 @@ update msg model =
             ( { model | tagsToSearch = newTags }, Cmd.none )
 
         ChangeName dish new ->
-            ( { model | currentlyEdited = Just { dish | name = Debug.log "Setting new name to: " new } }, Cmd.none )
+            ( { model | currentlyEdited = { dish | name = Debug.log "Setting new name to: " new } }, Cmd.none )
 
         ChangeTags new ->
             ( { model | rawTags = new }, Cmd.none )
 
         ChangeDesc dish new ->
-            ( { model | currentlyEdited = Just { dish | desc = Debug.log "Setting desc name to: " new } }, Cmd.none )
+            ( { model | currentlyEdited = { dish | desc = Debug.log "Setting desc name to: " new } }, Cmd.none )
 
         ChangeLink dish new ->
-            ( { model | currentlyEdited = Just { dish | link = Debug.log "Setting link name to: " new } }, Cmd.none )
+            ( { model | currentlyEdited = { dish | link = Debug.log "Setting link name to: " new } }, Cmd.none )
 
         StartEditing dish ->
-            ( { model | currentlyEdited = Just dish, rawTags = tagsToString dish.tags }, sendMessage "openModal" )
+            ( { model | currentlyEdited = dish, rawTags = tagsToString dish.tags }, sendMessage "openModal" )
 
         SaveDish dish ->
-            ( { model | currentlyEdited = Nothing }, saveDish { dish | tags = tagsToList model.rawTags } )
+            ( { model | currentlyEdited = emptyDish }, saveDish { dish | tags = tagsToList model.rawTags } )
 
         DeleteDish dish ->
             ( model, deleteDish dish )
@@ -89,10 +89,10 @@ update msg model =
         Deleted result ->
             case result of
                 Ok () ->
-                    ( { model | currentlyEdited = Nothing, dishes = removeDishById model.currentlyEdited model.dishes }, Cmd.none )
+                    ( { model | currentlyEdited = emptyDish, dishes = removeDishById model.currentlyEdited model.dishes }, Cmd.none )
 
                 Err error ->
-                    ( { model | currentlyEdited = Nothing, status = "Error deleting data " ++ Debug.toString error ++ " when deleting " ++ Debug.toString model.currentlyEdited }, Cmd.none )
+                    ( { model | currentlyEdited = emptyDish, status = "Error deleting data " ++ Debug.toString error ++ " when deleting " ++ Debug.toString model.currentlyEdited }, Cmd.none )
 
         GotSingleDishJson result ->
             case result of
@@ -120,7 +120,7 @@ init : () -> ( Model, Cmd Msg )
 init () =
     ( { tagsToSearch = ""
       , dishes = []
-      , currentlyEdited = Nothing
+      , currentlyEdited = emptyDish
       , rawTags = ""
       , status = ""
       }
@@ -134,7 +134,7 @@ init () =
 type alias Model =
     { tagsToSearch : String
     , dishes : List Dish
-    , currentlyEdited : Maybe Dish
+    , currentlyEdited : Dish
     , rawTags : String
     , status : String
     }
@@ -151,6 +151,10 @@ type alias Dish =
     , desc : String
     , link : String
     }
+
+
+emptyDish =
+    Dish Nothing "" [] "" ""
 
 
 dishOrDefualt : Maybe Dish -> Dish
@@ -249,14 +253,9 @@ addOrReplaceBasedOnId maybeId newDish dishes =
             dishes
 
 
-removeDishById : Maybe Dish -> List Dish -> List Dish
-removeDishById maybeDish dishes =
-    case maybeDish of
-        Just dish ->
-            List.filter (\listDish -> dish.id /= listDish.id) dishes
-
-        Nothing ->
-            Debug.log "Not removed anything" dishes
+removeDishById : Dish -> List Dish -> List Dish
+removeDishById dish dishes =
+    List.filter (\listDish -> dish.id /= listDish.id) dishes
 
 
 replaceWhenIdMatches : Int -> Dish -> Dish -> Dish
@@ -411,8 +410,8 @@ viewEditDialog model =
     div [ class "modal fade", id "modal", tabindex -1, attribute "role" "dialog" ]
         [ div [ class "modal-dialog", attribute "role" "document" ]
             [ div [ class "modal-content" ]
-                [ div [ class "modal-body" ] [ viewEditDialogForm model.rawTags (dishOrDefualt model.currentlyEdited) ]
-                , viewEditDialogFooter (dishOrDefualt model.currentlyEdited)
+                [ div [ class "modal-body" ] [ viewEditDialogForm model.rawTags model.currentlyEdited ]
+                , viewEditDialogFooter model.currentlyEdited
                 ]
             ]
         ]
