@@ -1,0 +1,21 @@
+{
+  "name": "kitchen-helper-functions",
+  "version": "1.0.0",
+  "description": "backend functions for kitchen helper",
+  "main": "index.js",
+  "directories": {},
+  "scripts": {
+    "netlify": "netlify dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "airtable-node": "^0.1.20",
+    "axios": "^0.21.1",
+    "dotenv": "^8.2.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^3.4.5"
+  }
+}

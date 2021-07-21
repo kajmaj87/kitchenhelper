@@ -3,3 +3,5 @@ client/elm-stuff
 */index.html
 server/db.json
 server/public/elm.js
+node_modules
+.env
