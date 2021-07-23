@@ -6,8 +6,8 @@
   "directories": {},
   "scripts": {
     "netlify": "netlify dev",
-    "precompile": "rm public/elm.js || true",
-    "compile": "cd client; elm make --output=../public/elm.js src/Main.elm"
+    "prebuild": "rm public/elm.js || true",
+    "build": "cd client; elm make --output=../public/elm.js src/Main.elm"
   },
   "keywords": [],
   "author": "",
