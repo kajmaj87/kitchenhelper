@@ -5,7 +5,9 @@
   "main": "index.js",
   "directories": {},
   "scripts": {
-    "netlify": "netlify dev"
+    "netlify": "netlify dev",
+    "precompile": "rm elm.js || true",
+    "compile": "cd client; elm make --output=../elm.js src/Main.elm"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +15,7 @@
   "dependencies": {
     "airtable-node": "^0.1.20",
     "axios": "^0.21.1",
+    "elm": "^0.19.1",
     "dotenv": "^8.2.0"
   },
   "devDependencies": {
